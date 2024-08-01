@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>語文學習遊戲</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            box-sizing: border-box;
+        }
+        #game-container {
+            position: relative;
+            width: calc(100vw - 20px);
+            height: calc(33.33vw - 20px); /* 3:1 寬高比 */
+            max-height: calc(100vh - 20px);
+            max-width: calc(300vh - 20px); /* 3:1 寬高比 */
+            margin: auto;
+            overflow: hidden;
+        }
+        #game {
+            width: calc(100vw - 20px);
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: white;
+            border: 0px solid #aaa;
+			border-radius: 10px;
+        }
+#dino {
+    width: 6%;
+    height: auto;
+    position: absolute;
+    bottom: 0;
+    left: 5%;
+    transition: bottom 0.5s;
+}
+
+#obstacle {
+    width: 8%;
+    height: auto;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+}
+        #englishWord {
+		    display: none;
+            position: absolute;
+            bottom: 5%;
+            right: -25%;
+            font-size: 2.5vh;
+            width: 25%;
+            text-align: left;
+            margin-right: -10px; /* 添加右邊距 */
+        }
+        #centerEnglishWord {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3.5vh;
+            text-align: center;
+        }
+        #chineseWord {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 5vh;
+        }
+        #score {
+            position: absolute;
+            top: 2%;
+            right: 2%;
+            font-size: 3vh;
+            color: #666;
+        }
+        #startMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3vh;
+            text-align: center;
+        }
+        #correctWord {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5vh;
+            color: green;
+            display: none;
+        }
+
+#ground {
+    position: absolute;
+    bottom: 0px;
+    left: 0;
+    width: 200%;
+    height: 2px;
+    background: #aaa;
+}
+
+#ground::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: 0;
+    width: 100%;
+    height: 2.5px;
+    background: repeating-linear-gradient(to right, #999, #aaa 2px, transparent 4px, transparent 80px);
+}
+#ground::before {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: repeating-linear-gradient(to right, #aaa, #999 2px, transparent 2px, transparent 50px);
+}
+#lives {
+    position: absolute;
+    top: 2%;
+    left: 2%;
+    font-size: 5vh;
+    color: gold;
+}
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game">
+            <div id="score">得分: <span id="scoreSpan">0</span></div>
+<div id="lives">
+    <span class="star">★</span>
+    <span class="star">★</span>
+    <span class="star">★</span>
+</div>
+            <div id="chineseWord"></div>
+            <img id="dino" src="dino.png" alt="Dinosaur">
+            <img id="obstacle" src="obstacle.png" alt="Obstacle">
+            <div id="englishWord"></div>
+            <div id="centerEnglishWord"></div>
+            <div id="startMessage">按空白鍵或點擊螢幕開始遊戲</div>
+            <div id="correctWord"></div>
+			<div id="ground"></div>
+        </div>
+    </div>
+
+    <script>
+
+
+const dino = document.getElementById("dino");
+const obstacle = document.getElementById("obstacle");
+const englishWord = document.getElementById("englishWord");
+const centerEnglishWord = document.getElementById("centerEnglishWord");
+const chineseWord = document.getElementById("chineseWord");
+const scoreSpan = document.getElementById("scoreSpan");
+const startMessage = document.getElementById("startMessage");
+const correctWord = document.getElementById("correctWord");
+const game = document.getElementById("game");
+const ground = document.getElementById("ground");
+let score = 0;
+let isJumping = false;
+let isGameRunning = false;
+let a = 0;
+
+const wordPairs = [{
+        chinese: "你好",
+        english: "Hello"
+    },
+    {
+        chinese: "再見",
+        english: "Goodbye"
+    },
+    {
+        chinese: "謝謝",
+        english: "Thank you"
+    },
+    {
+        chinese: "早上好",
+        english: "Good morning"
+    },
+    {
+        chinese: "晚安",
+        english: "Good night"
+    }
+];
+
+let lives = 3;
+let missedCorrectWords = 0;
+
+function startGame() {
+    if (!isGameRunning) {
+        isGameRunning = true;
+        score = 0;
+        lives = 3;
+        missedCorrectWords = 0;
+        scoreSpan.textContent = score;
+        updateLives();
+        startMessage.style.display = 'none';
+        moveObstacle();
+        moveGround();
+    }
+}
+
+function updateLives() {
+    const starsElements = document.querySelectorAll('#lives .star');
+    starsElements.forEach((star, index) => {
+        star.style.visibility = index < lives ? 'visible' : 'hidden';
+    });
+}
+
+function jump() {
+    if (!isJumping) {
+        if (!isGameRunning) {
+            startGame();
+        }
+        isJumping = true;
+        let jumpHeight = game.clientHeight * 0.6;
+        let jumpDuration = 1000; // 總跳躍時間（毫秒）
+
+        // 上升
+        dino.style.transition = `bottom ${jumpDuration/2}ms ease-out`;
+        dino.style.bottom = jumpHeight + "px";
+
+        // 下降
+        setTimeout(() => {
+            dino.style.transition = `bottom ${jumpDuration/2}ms ease-in`;
+            dino.style.bottom = "0px";
+        }, jumpDuration / 2);
+
+        // 重置跳躍狀態
+        setTimeout(() => {
+            isJumping = false;
+            dino.style.transition = ""; // 清除過渡效果
+        }, jumpDuration);
+    }
+}
+
+document.addEventListener("keydown", function(event) {
+    if (event.code === "Space") {
+        jump();
+    }
+});
+
+document.addEventListener("touchstart", function(event) {
+    event.preventDefault();
+    jump();
+});
+
+let groundPosition = 0;
+
+function moveGround() {
+    if (isGameRunning) {
+        groundPosition -= game.clientWidth / (200 - a);
+        if (groundPosition <= -game.clientWidth) {
+            groundPosition = 0;
+        }
+        ground.style.transform = `translateX(${groundPosition}px)`;
+    }
+    requestAnimationFrame(moveGround);
+}
+
+function moveObstacle() {
+    let position = 0;
+    let currentWord = getRandomWord();
+    let wordCounted = false;
+    let missedWordTimer = null;
+
+    function updateWord() {
+        currentWord = getRandomWord();
+        chineseWord.textContent = currentWord.chinese;
+        englishWord.textContent = currentWord.english;
+        centerEnglishWord.textContent = currentWord.english;
+        englishWord.style.color = "black";
+        centerEnglishWord.style.color = "black";
+        correctWord.style.display = "none";
+        wordCounted = false;
+    }
+
+    updateWord();
+
+    function move() {
+        if (isGameRunning) {
+            if (position > game.clientWidth + obstacle.clientWidth) {
+                if (currentWord.isCorrect && !wordCounted) {
+                    missedCorrectWords++;
+                    lives--;
+                    updateLives();
+                    
+                    if (lives <= 0) {
+                        isGameRunning = false;
+                        setTimeout(() => {
+                            alert("遊戲結束! 您跳過了太多正確的詞。您的得分是: " + score);
+                            location.reload();
+                        }, 100);
+                    } else {
+                        if (missedWordTimer) {
+                            clearTimeout(missedWordTimer);
+                        }
+                        
+                        centerEnglishWord.textContent = currentWord.english;
+						centerEnglishWord.style.color = "orange";
+
+						let pausePosition = position;
+                        
+						
+                        missedWordTimer = setTimeout(() => {
+                            updateWord();
+                            position = -obstacle.clientWidth;
+							move();
+					    }, 1000);
+						return;
+                    }
+                } else {
+                    updateWord();
+					position = -obstacle.clientWidth;
+					a = a + 10;
+                }               
+            }
+
+            position += game.clientWidth / (200 - a);				
+            obstacle.style.right = position + "px";
+            englishWord.style.right = (position - game.clientWidth * 0.25) + "px";
+
+            let dinoRect = dino.getBoundingClientRect();
+            let obstacleRect = obstacle.getBoundingClientRect();
+
+            if (
+                dinoRect.left < obstacleRect.right &&
+                dinoRect.right > obstacleRect.left &&
+                dinoRect.top < obstacleRect.bottom &&
+                dinoRect.bottom > obstacleRect.top
+            ) {
+                if (currentWord.isCorrect) {
+                    wordCounted = true;
+                    a = a - 5;
+                    score++;
+                    scoreSpan.textContent = score;
+                    dino.style.filter = "brightness(150%)";
+                    setTimeout(() => {
+                        dino.style.filter = "brightness(100%)";
+                    }, 500);
+                    position = -obstacle.clientWidth;
+                    updateWord();
+                } else {
+                    isGameRunning = false;
+                    englishWord.style.color = "red";
+                    centerEnglishWord.textContent = currentWord.correctEnglish;
+                    centerEnglishWord.style.color = "green";
+                    correctWord.style.display = "block";
+                    setTimeout(() => {
+                        alert("遊戲結束! 您的得分是: " + score);
+                        location.reload();
+                    }, 100);
+                }
+            }
+
+            requestAnimationFrame(move);
+        }
+    }
+
+    move();
+}
+
+function getRandomWord() {
+    let wordPair = wordPairs[Math.floor(Math.random() * wordPairs.length)];
+    let isCorrect = Math.random() < 0.5;
+    if (isCorrect) {
+        return {
+            ...wordPair,
+            isCorrect: true,
+            correctEnglish: wordPair.english
+        };
+    } else {
+        let incorrectEnglish = wordPairs.find(pair => pair.english !== wordPair.english).english;
+        return {
+            chinese: wordPair.chinese,
+            english: incorrectEnglish,
+            isCorrect: false,
+            correctEnglish: wordPair.english
+        };
+    }
+}
+    </script>
+</body>
+</html>
